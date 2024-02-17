@@ -29,9 +29,36 @@ pub struct RopeIter {
 }
 
 impl Rope {
-    pub fn new() -> Self {
-        Self {
-            root: Rc::new(RopeNode::None),
+    pub fn new(node: Rc<RopeNode>) -> Self {
+        let root = match node.as_ref() {
+            RopeNode::Leaf(leaf) => Rc::new(RopeNode::Node(Node {
+                left: Rc::clone(&node),
+                right: Rc::new(RopeNode::None),
+                weight: leaf.value.len(),
+            })),
+            RopeNode::Node(_) | RopeNode::None => Rc::clone(&node),
+        };
+
+        Self { root }
+    }
+
+    pub fn concat(s1: Rc<RopeNode>, s2: Rc<RopeNode>) -> Result<Self, String> {
+        match (s1.as_ref(), s2.as_ref()) {
+            (RopeNode::Node(_), RopeNode::Node(_)) => {
+                let weight = Rope::new(Rc::clone(&s1))
+                    .iter()
+                    .reduce(|acc, cur| format!("{acc}{cur}"))
+                    .map_or(0, |s| s.len());
+
+                Ok(Rope::new(Rc::new(RopeNode::Node(Node {
+                    left: s1,
+                    right: s2,
+                    weight,
+                }))))
+            }
+            _ => Err(String::from(
+                "Both \"s1\" and \"s2\" must be Nodes to concat them",
+            )),
         }
     }
 
@@ -210,5 +237,41 @@ mod tests {
         assert_eq!(rope.get_char(23).unwrap(), 's');
         assert_eq!(rope.get_char(31).unwrap(), 'e');
         assert!(rope.get_char(32).is_none());
+    }
+
+    #[test]
+    fn concat_test() {
+        let node1 = Rc::new(RopeNode::Node(Node {
+            left: Rc::new(RopeNode::Leaf(Leaf {
+                value: String::from("hello "),
+            })),
+            right: Rc::new(RopeNode::Leaf(Leaf {
+                value: String::from("world! "),
+            })),
+            weight: 6,
+        }));
+        let node2 = Rc::new(RopeNode::Node(Node {
+            left: Rc::new(RopeNode::Leaf(Leaf {
+                value: String::from("My name"),
+            })),
+            right: Rc::new(RopeNode::Leaf(Leaf {
+                value: String::from("is sugondese"),
+            })),
+            weight: 7,
+        }));
+
+        let rope = Rope::concat(node1, node2);
+        assert!(rope.is_ok());
+
+        let rope = rope.unwrap();
+
+        let mut iter = rope.iter();
+        println!("{}", rope.root);
+
+        assert_eq!(&iter.next().unwrap(), "hello ");
+        assert_eq!(&iter.next().unwrap(), "world! ");
+        assert_eq!(&iter.next().unwrap(), "My name");
+        assert_eq!(&iter.next().unwrap(), "is sugondese");
+        assert!(&iter.next().is_none());
     }
 }
