@@ -21,7 +21,6 @@ pub struct Node {
 
 #[derive(Debug)]
 pub struct Leaf {
-    pub weight: usize,
     pub value: String,
 }
 
@@ -34,6 +33,10 @@ impl Rope {
         Self {
             root: Rc::new(RopeNode::None),
         }
+    }
+
+    pub fn get_char(&self, index: usize) -> Option<char> {
+        return self.get_char_rec(index, &self.root);
     }
 
     pub fn iter(&self) -> RopeIter {
@@ -54,6 +57,20 @@ impl Rope {
         }
 
         RopeIter { nodes_stack }
+    }
+
+    fn get_char_rec(&self, index: usize, node: &RopeNode) -> Option<char> {
+        match node {
+            RopeNode::Node(node) => {
+                if index >= node.weight {
+                    return self.get_char_rec(index - node.weight, &node.right);
+                }
+
+                return self.get_char_rec(index, &node.left);
+            }
+            RopeNode::Leaf(leaf) => leaf.value.chars().nth(index),
+            RopeNode::None => None,
+        }
     }
 }
 
@@ -129,22 +146,18 @@ mod tests {
             root: Rc::new(RopeNode::Node(Node {
                 left: Rc::new(RopeNode::Node(Node {
                     left: Rc::new(RopeNode::Leaf(Leaf {
-                        weight: 5,
                         value: String::from("hello"),
                     })),
                     right: Rc::new(RopeNode::Leaf(Leaf {
-                        weight: 5,
                         value: String::from("world"),
                     })),
                     weight: 5,
                 })),
                 right: Rc::new(RopeNode::Node(Node {
                     left: Rc::new(RopeNode::Leaf(Leaf {
-                        weight: 5,
                         value: String::from("My name"),
                     })),
                     right: Rc::new(RopeNode::Leaf(Leaf {
-                        weight: 5,
                         value: String::from("is sugondese"),
                     })),
                     weight: 5,
@@ -161,5 +174,41 @@ mod tests {
         assert_eq!(&iter.next().unwrap(), "My name");
         assert_eq!(&iter.next().unwrap(), "is sugondese");
         assert!(&iter.next().is_none());
+    }
+
+    #[test]
+    fn get_char_test() {
+        let rope = Rope {
+            root: Rc::new(RopeNode::Node(Node {
+                left: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("hello "),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("world! "),
+                    })),
+                    weight: 6,
+                })),
+                right: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("My name"),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("is sugondese"),
+                    })),
+                    weight: 7,
+                })),
+                weight: 13,
+            })),
+        };
+
+        assert_eq!(rope.get_char(4).unwrap(), 'o');
+        assert_eq!(rope.get_char(6).unwrap(), 'w');
+        assert_eq!(rope.get_char(13).unwrap(), 'M');
+        assert_eq!(rope.get_char(16).unwrap(), 'n');
+        assert_eq!(rope.get_char(16).unwrap(), 'n');
+        assert_eq!(rope.get_char(23).unwrap(), 's');
+        assert_eq!(rope.get_char(31).unwrap(), 'e');
+        assert!(rope.get_char(32).is_none());
     }
 }
