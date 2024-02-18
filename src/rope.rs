@@ -47,8 +47,13 @@ impl Rope {
             (RopeNode::Node(_), RopeNode::Node(_)) => {
                 let weight = Rope::new(Rc::clone(&s1))
                     .iter()
-                    .reduce(|acc, cur| format!("{acc}{cur}"))
-                    .map_or(0, |s| s.len());
+                    .map(|n| {
+                        n.map_leaf()
+                            .expect("error while iterating leafs. None leaf node found")
+                            .value
+                            .len()
+                    })
+                    .sum();
 
                 Ok(Rope::new(Rc::new(RopeNode::Node(Node {
                     left: s1,
@@ -63,7 +68,7 @@ impl Rope {
     }
 
     pub fn get_char(&self, index: usize) -> Option<char> {
-        return self.get_char_rec(index, &self.root);
+        self.get_char_rec(index, &self.root)
     }
 
     pub fn iter(&self) -> RopeIter {
@@ -93,7 +98,7 @@ impl Rope {
                     return self.get_char_rec(index - node.weight, &node.right);
                 }
 
-                return self.get_char_rec(index, &node.left);
+                self.get_char_rec(index, &node.left)
             }
             RopeNode::Leaf(leaf) => leaf.value.chars().nth(index),
             RopeNode::None => None,
@@ -132,18 +137,18 @@ impl RopeIter {
 }
 
 impl Iterator for RopeIter {
-    type Item = String;
+    type Item = Rc<RopeNode>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.nodes_stack.pop() {
             Some(rope_node) => match rope_node.as_ref() {
-                RopeNode::Leaf(leaf) => {
+                RopeNode::Leaf(_) => {
                     match self.nodes_stack.pop() {
                         Some(parent) => self.collect_parent_right_nodes(parent.as_ref()),
                         None => (),
                     };
 
-                    return Some(leaf.value.clone());
+                    Some(rope_node)
                 }
                 // how did this happen lol?
                 RopeNode::Node(_) | RopeNode::None => None,
@@ -159,6 +164,15 @@ impl Display for RopeNode {
             RopeNode::Node(node) => write!(f, "Node(Left: {}, Right: {})", node.left, node.right),
             RopeNode::Leaf(leaf) => write!(f, "Leaf({})", leaf.value),
             RopeNode::None => write!(f, "None"),
+        }
+    }
+}
+
+impl RopeNode {
+    pub fn map_leaf(&self) -> Option<&Leaf> {
+        match self {
+            RopeNode::Leaf(l) => Some(l),
+            RopeNode::Node(_) | RopeNode::None => None,
         }
     }
 }
@@ -194,12 +208,13 @@ mod tests {
         };
 
         let mut iter = rope.iter();
-        println!("{}", rope.root);
 
-        assert_eq!(&iter.next().unwrap(), "hello");
-        assert_eq!(&iter.next().unwrap(), "world");
-        assert_eq!(&iter.next().unwrap(), "My name");
-        assert_eq!(&iter.next().unwrap(), "is sugondese");
+        let expected_values = vec!["hello", "world", "My name", "is sugondese"];
+
+        for expected in expected_values {
+            assert_eq!(&iter.next().unwrap().map_leaf().unwrap().value, expected);
+        }
+
         assert!(&iter.next().is_none());
     }
 
@@ -266,12 +281,13 @@ mod tests {
         let rope = rope.unwrap();
 
         let mut iter = rope.iter();
-        println!("{}", rope.root);
 
-        assert_eq!(&iter.next().unwrap(), "hello ");
-        assert_eq!(&iter.next().unwrap(), "world! ");
-        assert_eq!(&iter.next().unwrap(), "My name");
-        assert_eq!(&iter.next().unwrap(), "is sugondese");
+        let expected_values = vec!["hello ", "world! ", "My name", "is sugondese"];
+
+        for expected in expected_values {
+            assert_eq!(&iter.next().unwrap().map_leaf().unwrap().value, expected);
+        }
+
         assert!(&iter.next().is_none());
     }
 }
