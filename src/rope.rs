@@ -42,29 +42,8 @@ impl Rope {
         Self { root }
     }
 
-    pub fn concat(s1: Rc<RopeNode>, s2: Rc<RopeNode>) -> Result<Self, String> {
-        match (s1.as_ref(), s2.as_ref()) {
-            (RopeNode::Node(_), RopeNode::Node(_)) => {
-                let weight = Rope::new(Rc::clone(&s1))
-                    .iter()
-                    .map(|n| {
-                        n.map_leaf()
-                            .expect("error while iterating leafs. None leaf node found")
-                            .value
-                            .len()
-                    })
-                    .sum();
-
-                Ok(Rope::new(Rc::new(RopeNode::Node(Node {
-                    left: s1,
-                    right: s2,
-                    weight,
-                }))))
-            }
-            _ => Err(String::from(
-                "Both \"s1\" and \"s2\" must be Nodes to concat them",
-            )),
-        }
+    pub fn concat(s1: Rc<RopeNode>, s2: Rc<RopeNode>) -> Self {
+        Rope::new(RopeNode::concat(s1, s2))
     }
 
     pub fn get_char(&self, index: usize) -> Option<char> {
@@ -72,8 +51,12 @@ impl Rope {
     }
 
     pub fn iter(&self) -> RopeIter {
+        Rope::iter_node(Rc::clone(&self.root))
+    }
+
+    pub fn iter_node(node: Rc<RopeNode>) -> RopeIter {
         let mut nodes_stack: Vec<Rc<RopeNode>> = vec![];
-        let mut cur_node = Rc::clone(&self.root);
+        let mut cur_node = node;
 
         loop {
             if let RopeNode::None = cur_node.as_ref() {
@@ -91,6 +74,58 @@ impl Rope {
         RopeIter { nodes_stack }
     }
 
+    pub fn substring(&mut self, start: usize, len: usize) {
+        let mut leafs: Vec<Rc<RopeNode>> = vec![];
+        let mut start_idx = start;
+        let mut len_left = len;
+
+        let mut iter = self.iter();
+
+        loop {
+            if len_left <= 0 {
+                break;
+            }
+
+            match iter.next() {
+                Some(node) => {
+                    let str_part = &node.map_leaf().expect("leaf expected").value;
+
+                    if str_part.len() == 0 {
+                        continue;
+                    }
+
+                    let str_part_max_idx = str_part.len() - 1;
+
+                    match str_part_max_idx {
+                        _ if start_idx == 0 && len_left >= str_part.len() - 1 => {
+                            leafs.push(Rc::clone(&node));
+                            len_left -= str_part.len();
+                        }
+                        i if i > start_idx => {
+                            let new_value: String =
+                                str_part.chars().skip(start_idx).take(len_left).collect();
+
+                            start_idx = 0;
+                            len_left -= new_value.len();
+
+                            if new_value.len() > 0 {
+                                leafs.push(Rc::new(RopeNode::Leaf(Leaf { value: new_value })));
+                            }
+                        }
+                        _ => start_idx -= str_part.len(),
+                    }
+                }
+                None => break,
+            };
+        }
+
+        self.root = Rope::from_iter(leafs).root;
+    }
+
+    pub fn rebalance(&mut self) {
+        self.root = Rope::from_iter(self.iter()).root;
+    }
+
     fn get_char_rec(&self, index: usize, node: &RopeNode) -> Option<char> {
         match node {
             RopeNode::Node(node) => {
@@ -102,6 +137,48 @@ impl Rope {
             }
             RopeNode::Leaf(leaf) => leaf.value.chars().nth(index),
             RopeNode::None => None,
+        }
+    }
+}
+
+impl FromIterator<Rc<RopeNode>> for Rope {
+    fn from_iter<T: IntoIterator<Item = Rc<RopeNode>>>(iter: T) -> Self {
+        let mut leafs = vec![];
+
+        for node in iter {
+            match node.as_ref() {
+                RopeNode::Leaf(_) => leafs.push(node),
+                RopeNode::Node(_) | RopeNode::None => (),
+            }
+        }
+
+        loop {
+            match leafs.len() {
+                0 => {
+                    return Rope {
+                        root: Rc::new(RopeNode::None),
+                    }
+                }
+                1 => {
+                    return Rope {
+                        root: Rc::clone(&leafs.first().unwrap()),
+                    }
+                }
+                _ => {
+                    let nodes_num = (leafs.len() as f32 / 2.0).ceil() as usize;
+
+                    leafs = (0..nodes_num)
+                        .map(|i| {
+                            RopeNode::concat(
+                                Rc::clone(leafs.get(i).or(Some(&Rc::new(RopeNode::None))).unwrap()),
+                                Rc::clone(
+                                    leafs.get(i + 1).or(Some(&Rc::new(RopeNode::None))).unwrap(),
+                                ),
+                            )
+                        })
+                        .collect();
+                }
+            };
         }
     }
 }
@@ -175,11 +252,30 @@ impl RopeNode {
             RopeNode::Node(_) | RopeNode::None => None,
         }
     }
+
+    pub fn concat(s1: Rc<RopeNode>, s2: Rc<RopeNode>) -> Rc<RopeNode> {
+        let weight = Rope::new(Rc::clone(&s1))
+            .iter()
+            .map(|n| {
+                n.map_leaf()
+                    .expect("error while iterating leafs. None leaf node found")
+                    .value
+                    .len()
+            })
+            .sum();
+
+        Rc::new(RopeNode::Node(Node {
+            left: s1,
+            right: s2,
+            weight,
+        }))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core::panic;
 
     #[test]
     fn traverse_test() {
@@ -276,9 +372,6 @@ mod tests {
         }));
 
         let rope = Rope::concat(node1, node2);
-        assert!(rope.is_ok());
-
-        let rope = rope.unwrap();
 
         let mut iter = rope.iter();
 
@@ -289,5 +382,39 @@ mod tests {
         }
 
         assert!(&iter.next().is_none());
+    }
+
+    #[test]
+    fn substring_test() {
+        let mut rope = Rope {
+            root: Rc::new(RopeNode::Node(Node {
+                left: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("hello "),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("world! "),
+                    })),
+                    weight: 6,
+                })),
+                right: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("My name"),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("is sugondese"),
+                    })),
+                    weight: 7,
+                })),
+                weight: 13,
+            })),
+        };
+
+        rope.substring(10, 60);
+        //rope.substring(0, 4);
+        println!("{}", rope.root);
+        panic!();
+        // rope.substring(6, 5);
+        // rope.substring(6, 8);
     }
 }
