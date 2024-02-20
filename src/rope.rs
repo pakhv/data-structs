@@ -143,17 +143,21 @@ impl Rope {
 
 impl FromIterator<Rc<RopeNode>> for Rope {
     fn from_iter<T: IntoIterator<Item = Rc<RopeNode>>>(iter: T) -> Self {
-        let mut leafs = vec![];
+        let mut nodes = vec![];
 
         for node in iter {
             match node.as_ref() {
-                RopeNode::Leaf(_) => leafs.push(node),
+                RopeNode::Leaf(leaf) => {
+                    nodes.push((Rc::clone(&node), leaf.value.len(), 0 as usize))
+                }
                 RopeNode::Node(_) | RopeNode::None => (),
             }
         }
 
+        let empty_node = (Rc::new(RopeNode::None), 0 as usize, 0 as usize);
+
         loop {
-            match leafs.len() {
+            match nodes.len() {
                 0 => {
                     return Rope {
                         root: Rc::new(RopeNode::None),
@@ -161,19 +165,33 @@ impl FromIterator<Rc<RopeNode>> for Rope {
                 }
                 1 => {
                     return Rope {
-                        root: Rc::clone(&leafs.first().unwrap()),
+                        root: Rc::clone(&nodes.first().unwrap().0),
                     }
                 }
                 _ => {
-                    let nodes_num = (leafs.len() as f32 / 2.0).ceil() as usize;
+                    let nodes_num = (nodes.len() as f32 / 2.0).ceil() as usize;
 
-                    leafs = (0..nodes_num)
+                    nodes = (0..nodes_num)
                         .map(|i| {
-                            RopeNode::concat(
-                                Rc::clone(leafs.get(i).or(Some(&Rc::new(RopeNode::None))).unwrap()),
-                                Rc::clone(
-                                    leafs.get(i + 1).or(Some(&Rc::new(RopeNode::None))).unwrap(),
-                                ),
+                            let left = nodes
+                                .get(2 * i)
+                                .and_then(|r| Some((Rc::clone(&r.0), r.1, r.2)))
+                                .or(Some(empty_node.clone()))
+                                .unwrap();
+                            let right = nodes
+                                .get(2 * i + 1)
+                                .and_then(|r| Some((Rc::clone(&r.0), r.1, r.2)))
+                                .or(Some(empty_node.clone()))
+                                .unwrap();
+
+                            (
+                                Rc::new(RopeNode::Node(Node {
+                                    left: Rc::clone(&left.0),
+                                    right: Rc::clone(&right.0),
+                                    weight: left.1,
+                                })),
+                                left.1 + left.2,
+                                right.1 + right.2,
                             )
                         })
                         .collect();
@@ -389,32 +407,53 @@ mod tests {
         let mut rope = Rope {
             root: Rc::new(RopeNode::Node(Node {
                 left: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
-                        value: String::from("hello "),
+                    left: Rc::new(RopeNode::Node(Node {
+                        left: Rc::new(RopeNode::Leaf(Leaf {
+                            value: String::from("hello "),
+                        })),
+                        right: Rc::new(RopeNode::Leaf(Leaf {
+                            value: String::from("world! "),
+                        })),
+                        weight: 6,
                     })),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
-                        value: String::from("world! "),
+                    right: Rc::new(RopeNode::Node(Node {
+                        left: Rc::new(RopeNode::Leaf(Leaf {
+                            value: String::from("My name"),
+                        })),
+                        right: Rc::new(RopeNode::Leaf(Leaf {
+                            value: String::from("is sugondese"),
+                        })),
+                        weight: 7,
                     })),
-                    weight: 6,
+                    weight: 13,
                 })),
                 right: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
-                        value: String::from("My name"),
+                    left: Rc::new(RopeNode::Node(Node {
+                        left: Rc::new(RopeNode::Leaf(Leaf {
+                            value: String::from("hello "),
+                        })),
+                        right: Rc::new(RopeNode::Leaf(Leaf {
+                            value: String::from("world! "),
+                        })),
+                        weight: 6,
                     })),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
-                        value: String::from("is sugondese"),
+                    right: Rc::new(RopeNode::Node(Node {
+                        left: Rc::new(RopeNode::Leaf(Leaf {
+                            value: String::from("My name"),
+                        })),
+                        right: Rc::new(RopeNode::Leaf(Leaf {
+                            value: String::from("is sugondese"),
+                        })),
+                        weight: 7,
                     })),
-                    weight: 7,
+                    weight: 13,
                 })),
-                weight: 13,
+                weight: 1,
             })),
         };
 
-        rope.substring(10, 60);
-        //rope.substring(0, 4);
-        println!("{}", rope.root);
+        rope.substring(0, 600);
+        println!("{:?}", rope.root);
         panic!();
-        // rope.substring(6, 5);
-        // rope.substring(6, 8);
     }
 }
