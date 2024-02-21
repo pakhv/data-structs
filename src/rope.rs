@@ -143,21 +143,19 @@ impl Rope {
 
 impl FromIterator<Rc<RopeNode>> for Rope {
     fn from_iter<T: IntoIterator<Item = Rc<RopeNode>>>(iter: T) -> Self {
-        let mut nodes = vec![];
+        let mut nodes_with_weights = vec![];
 
         for node in iter {
             match node.as_ref() {
                 RopeNode::Leaf(leaf) => {
-                    nodes.push((Rc::clone(&node), leaf.value.len(), 0 as usize))
+                    nodes_with_weights.push((Rc::clone(&node), leaf.value.len(), 0 as usize))
                 }
                 RopeNode::Node(_) | RopeNode::None => (),
             }
         }
 
-        let empty_node = (Rc::new(RopeNode::None), 0 as usize, 0 as usize);
-
         loop {
-            match nodes.len() {
+            match nodes_with_weights.len() {
                 0 => {
                     return Rope {
                         root: Rc::new(RopeNode::None),
@@ -165,24 +163,16 @@ impl FromIterator<Rc<RopeNode>> for Rope {
                 }
                 1 => {
                     return Rope {
-                        root: Rc::clone(&nodes.first().unwrap().0),
+                        root: Rc::clone(&nodes_with_weights.first().unwrap().0),
                     }
                 }
                 _ => {
-                    let nodes_num = (nodes.len() as f32 / 2.0).ceil() as usize;
+                    let nodes_num = (nodes_with_weights.len() as f32 / 2.0).ceil() as usize;
 
-                    nodes = (0..nodes_num)
+                    nodes_with_weights = (0..nodes_num)
                         .map(|i| {
-                            let left = nodes
-                                .get(2 * i)
-                                .and_then(|r| Some((Rc::clone(&r.0), r.1, r.2)))
-                                .or(Some(empty_node.clone()))
-                                .unwrap();
-                            let right = nodes
-                                .get(2 * i + 1)
-                                .and_then(|r| Some((Rc::clone(&r.0), r.1, r.2)))
-                                .or(Some(empty_node.clone()))
-                                .unwrap();
+                            let left = RopeNode::get_by_index(&nodes_with_weights, 2 * i);
+                            let right = RopeNode::get_by_index(&nodes_with_weights, 2 * i + 1);
 
                             (
                                 Rc::new(RopeNode::Node(Node {
@@ -287,6 +277,17 @@ impl RopeNode {
             right: s2,
             weight,
         }))
+    }
+
+    fn get_by_index(
+        nodes_with_weights: &Vec<(Rc<RopeNode>, usize, usize)>,
+        index: usize,
+    ) -> (Rc<RopeNode>, usize, usize) {
+        nodes_with_weights
+            .get(index)
+            .and_then(|r| Some((Rc::clone(&r.0), r.1, r.2)))
+            .or(Some((Rc::new(RopeNode::None), 0, 0)))
+            .unwrap()
     }
 }
 
