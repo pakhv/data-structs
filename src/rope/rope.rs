@@ -1,3 +1,4 @@
+use crate::helpers::fibonacci_seq::get_fibonacci_number;
 use crate::rope::rope_node::Leaf;
 use std::{fmt::Display, rc::Rc};
 
@@ -26,7 +27,10 @@ impl Rope {
     }
 
     pub fn concat(s1: Rc<RopeNode>, s2: Rc<RopeNode>) -> Self {
-        Rope::new(RopeNode::concat(s1, s2))
+        let mut result = Rope::new(RopeNode::concat(s1, s2));
+        result.rebalance();
+
+        result
     }
 
     pub fn get_char(&self, index: usize) -> Option<char> {
@@ -106,7 +110,18 @@ impl Rope {
     }
 
     pub fn rebalance(&mut self) {
+        if self.is_balanced() {
+            return;
+        }
+
         self.root = Rope::from_iter(self.iter()).root;
+    }
+
+    pub fn is_balanced(&self) -> bool {
+        let depth = self.root.get_depth();
+        let min_length = get_fibonacci_number(depth + 2);
+
+        self.iter().count() >= min_length
     }
 
     fn get_char_rec(&self, index: usize, node: &RopeNode) -> Option<char> {
@@ -349,6 +364,72 @@ mod tests {
         rope.substring(3, 40);
 
         let expected = r#"Node(Left: Node(Left: Node(Left: Leaf("lo "), Right: Leaf("world! ")), Right: Node(Left: Leaf("My name"), Right: Leaf("is sugondese"))), Right: Node(Left: Leaf("hello "), Right: Leaf("world")))"#;
+
+        assert_eq!(expected, format!("{rope}"));
+    }
+
+    #[test]
+    fn get_depth_test() {
+        let node = Rc::new(RopeNode::Node(Node {
+            left: Rc::new(RopeNode::Node(Node {
+                left: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("hello "),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("world! "),
+                    })),
+                    weight: 6,
+                })),
+                right: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("My name"),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("is sugondese"),
+                    })),
+                    weight: 7,
+                })),
+                weight: 13,
+            })),
+            right: Rc::new(RopeNode::None),
+            weight: 0,
+        }));
+
+        assert_eq!(3, node.get_depth());
+    }
+
+    #[test]
+    fn rebalance_test() {
+        let mut rope = Rope::new(Rc::new(RopeNode::Node(Node {
+            left: Rc::new(RopeNode::Node(Node {
+                left: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("hello "),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("world! "),
+                    })),
+                    weight: 6,
+                })),
+                right: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("My name"),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("is sugondese"),
+                    })),
+                    weight: 7,
+                })),
+                weight: 13,
+            })),
+            right: Rc::new(RopeNode::None),
+            weight: 0,
+        })));
+
+        rope.rebalance();
+
+        let expected = r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: Node(Left: Leaf("My name"), Right: Leaf("is sugondese")))"#;
 
         assert_eq!(expected, format!("{rope}"));
     }

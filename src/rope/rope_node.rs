@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{cmp, fmt::Display, rc::Rc};
 
 use super::rope::Rope;
 
@@ -51,6 +51,18 @@ impl RopeNode {
         match self {
             RopeNode::None => false,
             _ => true,
+        }
+    }
+
+    pub fn get_depth(&self) -> usize {
+        match self {
+            RopeNode::Node(n) => {
+                let left = &n.left.get_depth();
+                let right = &n.right.get_depth();
+
+                cmp::max(left, right) + 1
+            }
+            RopeNode::Leaf(_) | RopeNode::None => 0,
         }
     }
 }
