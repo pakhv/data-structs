@@ -61,6 +61,56 @@ impl Rope {
         RopeIter { nodes_stack }
     }
 
+    pub fn split(&self, index: usize) -> (Rc<RopeNode>, Rc<RopeNode>) {
+        match index {
+            0 => (Rc::new(RopeNode::None), Rc::clone(&self.root)),
+            i if i == self.len() => (Rc::clone(&self.root), Rc::new(RopeNode::None)),
+            _ => {
+                let mut cur_idx = 0;
+                let mut iter = self.iter();
+
+                let mut left_subtree = vec![];
+                let mut right_subtree = vec![];
+
+                loop {
+                    match iter.next() {
+                        Some(node) => {
+                            let str_part = &node.map_leaf().expect("leaf expected").value;
+
+                            let str_part_max_idx = cur_idx + str_part.len();
+
+                            match str_part_max_idx {
+                                i if cur_idx < index && i > index => {
+                                    left_subtree.push(Rc::new(RopeNode::Leaf(Leaf {
+                                        value: str_part[0..index - cur_idx].to_string(),
+                                    })));
+                                    right_subtree.push(Rc::new(RopeNode::Leaf(Leaf {
+                                        value: str_part[index - cur_idx..].to_string(),
+                                    })))
+                                }
+                                _ if cur_idx < index => {
+                                    left_subtree.push(Rc::clone(&node));
+                                }
+                                _ if cur_idx >= index => {
+                                    right_subtree.push(Rc::clone(&node));
+                                }
+                                _ => (),
+                            }
+
+                            cur_idx += str_part.len();
+                        }
+                        None => break,
+                    };
+                }
+
+                (
+                    Rope::from_iter(left_subtree).root,
+                    Rope::from_iter(right_subtree).root,
+                )
+            }
+        }
+    }
+
     pub fn substring(&mut self, start: usize, len: usize) {
         let mut leafs: Vec<Rc<RopeNode>> = vec![];
         let mut start_idx = start;
@@ -124,6 +174,10 @@ impl Rope {
         self.iter().count() >= min_length
     }
 
+    pub fn len(&self) -> usize {
+        self.iter().map(|n| n.map_leaf().unwrap().value.len()).sum()
+    }
+
     fn get_char_rec(&self, index: usize, node: &RopeNode) -> Option<char> {
         match node {
             RopeNode::Node(node) => {
@@ -162,7 +216,7 @@ impl FromIterator<Rc<RopeNode>> for Rope {
                 1 => {
                     return Rope {
                         root: Rc::clone(&nodes_with_weights.first().unwrap().0),
-                    }
+                    };
                 }
                 _ => {
                     let nodes_num = (nodes_with_weights.len() as f32 / 2.0).ceil() as usize;
@@ -179,7 +233,7 @@ impl FromIterator<Rc<RopeNode>> for Rope {
                                     Rc::new(RopeNode::Node(Node {
                                         left: Rc::clone(&left.0),
                                         right: Rc::clone(&right.0),
-                                        weight: left.1,
+                                        weight: left.1 + left.2,
                                     })),
                                     left.1 + left.2,
                                     right.1 + right.2,
@@ -432,5 +486,38 @@ mod tests {
         let expected = r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: Node(Left: Leaf("My name"), Right: Leaf("is sugondese")))"#;
 
         assert_eq!(expected, format!("{rope}"));
+    }
+
+    #[test]
+    fn split_test() {
+        let rope = Rope::new(Rc::new(RopeNode::Node(Node {
+            left: Rc::new(RopeNode::Node(Node {
+                left: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("hello "),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("world! "),
+                    })),
+                    weight: 6,
+                })),
+                right: Rc::new(RopeNode::Node(Node {
+                    left: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("My name"),
+                    })),
+                    right: Rc::new(RopeNode::Leaf(Leaf {
+                        value: String::from("is sugondese"),
+                    })),
+                    weight: 7,
+                })),
+                weight: 13,
+            })),
+            right: Rc::new(RopeNode::None),
+            weight: 0,
+        })));
+
+        let result = rope.split(19);
+        println!("{:?}", result.0);
+        println!("{:?}", result.1);
     }
 }
