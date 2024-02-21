@@ -20,7 +20,7 @@ impl Rope {
                 right: Rc::new(RopeNode::None),
                 weight: leaf.value.len(),
             })),
-            RopeNode::Node(_) | RopeNode::None => Rc::clone(&node),
+            RopeNode::Node(_) | RopeNode::None => node,
         };
 
         Self { root }
@@ -64,7 +64,7 @@ impl Rope {
     pub fn split(&self, index: usize) -> (Rc<RopeNode>, Rc<RopeNode>) {
         match index {
             0 => (Rc::new(RopeNode::None), Rc::clone(&self.root)),
-            i if i == self.len() => (Rc::clone(&self.root), Rc::new(RopeNode::None)),
+            i if i >= self.len() => (Rc::clone(&self.root), Rc::new(RopeNode::None)),
             _ => {
                 let mut cur_idx = 0;
                 let mut iter = self.iter();
@@ -492,32 +492,46 @@ mod tests {
     fn split_test() {
         let rope = Rope::new(Rc::new(RopeNode::Node(Node {
             left: Rc::new(RopeNode::Node(Node {
-                left: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
-                        value: String::from("hello "),
-                    })),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
-                        value: String::from("world! "),
-                    })),
-                    weight: 6,
+                left: Rc::new(RopeNode::Leaf(Leaf {
+                    value: String::from("hello "),
                 })),
-                right: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
-                        value: String::from("My name"),
-                    })),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
-                        value: String::from("is sugondese"),
-                    })),
-                    weight: 7,
+                right: Rc::new(RopeNode::Leaf(Leaf {
+                    value: String::from("world! "),
                 })),
-                weight: 13,
+                weight: 6,
             })),
             right: Rc::new(RopeNode::None),
-            weight: 0,
+            weight: 13,
         })));
 
-        let result = rope.split(19);
-        println!("{:?}", result.0);
-        println!("{:?}", result.1);
+        let expected_result = vec![
+            (
+                0,
+                "None",
+                r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: None)"#,
+            ),
+            (
+                13,
+                r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: None)"#,
+                "None",
+            ),
+            (6, r#"Leaf("hello ")"#, r#"Leaf("world! ")"#),
+            (
+                9,
+                r#"Node(Left: Leaf("hello "), Right: Leaf("wor"))"#,
+                r#"Leaf("ld! ")"#,
+            ),
+            (
+                20,
+                r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: None)"#,
+                "None",
+            ),
+        ];
+
+        for (idx, exp_left, exp_right) in expected_result {
+            let (left, right) = rope.split(idx);
+            assert_eq!(exp_left, format!("{left}"));
+            assert_eq!(exp_right, format!("{right}"));
+        }
     }
 }
