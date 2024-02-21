@@ -47,15 +47,11 @@ impl RopeNode {
         }))
     }
 
-    pub fn get_by_index(
-        nodes_with_weights: &Vec<(Rc<RopeNode>, usize, usize)>,
-        index: usize,
-    ) -> (Rc<RopeNode>, usize, usize) {
-        nodes_with_weights
-            .get(index)
-            .and_then(|r| Some((Rc::clone(&r.0), r.1, r.2)))
-            .or(Some((Rc::new(RopeNode::None), 0, 0)))
-            .unwrap()
+    pub fn is_not_none(&self) -> bool {
+        match self {
+            RopeNode::None => false,
+            _ => true,
+        }
     }
 }
 

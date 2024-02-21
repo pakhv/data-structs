@@ -154,19 +154,24 @@ impl FromIterator<Rc<RopeNode>> for Rope {
 
                     nodes_with_weights = (0..nodes_num)
                         .map(|i| {
-                            let left = RopeNode::get_by_index(&nodes_with_weights, 2 * i);
-                            let right = RopeNode::get_by_index(&nodes_with_weights, 2 * i + 1);
+                            let left = nodes_with_weights.get(2 * i);
+                            let right = nodes_with_weights.get(2 * i + 1);
 
-                            (
-                                Rc::new(RopeNode::Node(Node {
-                                    left: Rc::clone(&left.0),
-                                    right: Rc::clone(&right.0),
-                                    weight: left.1,
-                                })),
-                                left.1 + left.2,
-                                right.1 + right.2,
-                            )
+                            match (left, right) {
+                                (None, None) => (Rc::new(RopeNode::None), 0, 0),
+                                (None, Some(n)) | (Some(n), None) => (Rc::clone(&n.0), n.1, n.2),
+                                (Some(left), Some(right)) => (
+                                    Rc::new(RopeNode::Node(Node {
+                                        left: Rc::clone(&left.0),
+                                        right: Rc::clone(&right.0),
+                                        weight: left.1,
+                                    })),
+                                    left.1 + left.2,
+                                    right.1 + right.2,
+                                ),
+                            }
                         })
+                        .filter(|n| (&n.0).is_not_none())
                         .collect();
                 }
             };
@@ -341,9 +346,9 @@ mod tests {
             })),
         };
 
-        rope.substring(3, 30);
+        rope.substring(3, 40);
 
-        let expected = r#"Node(Left: Node(Left: Node(Left: Leaf("lo "), Right: Leaf("world! ")), Right: Node(Left: Leaf("My name"), Right: Leaf("is sugondese"))), Right: Node(Left: Node(Left: Leaf("h"), Right: None), Right: None))"#;
+        let expected = r#"Node(Left: Node(Left: Node(Left: Leaf("lo "), Right: Leaf("world! ")), Right: Node(Left: Leaf("My name"), Right: Leaf("is sugondese"))), Right: Node(Left: Leaf("hello "), Right: Leaf("world")))"#;
 
         assert_eq!(expected, format!("{rope}"));
     }
