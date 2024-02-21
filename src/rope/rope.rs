@@ -1,5 +1,5 @@
 use crate::rope::rope_node::Leaf;
-use std::rc::Rc;
+use std::{fmt::Display, rc::Rc};
 
 use super::{
     rope_iter::RopeIter,
@@ -174,10 +174,15 @@ impl FromIterator<Rc<RopeNode>> for Rope {
     }
 }
 
+impl Display for Rope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.root.fmt(f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::panic;
 
     #[test]
     fn traverse_test() {
@@ -336,8 +341,10 @@ mod tests {
             })),
         };
 
-        rope.substring(0, 600);
-        println!("{:?}", rope.root);
-        panic!();
+        rope.substring(3, 30);
+
+        let expected = r#"Node(Left: Node(Left: Node(Left: Leaf("lo "), Right: Leaf("world! ")), Right: Node(Left: Leaf("My name"), Right: Leaf("is sugondese"))), Right: Node(Left: Node(Left: Leaf("h"), Right: None), Right: None))"#;
+
+        assert_eq!(expected, format!("{rope}"));
     }
 }
