@@ -1,4 +1,4 @@
-use super::rope_node::RopeNode;
+use super::rope_node::{RopeNode, RopeNodeWrapper};
 use std::rc::Rc;
 
 pub struct RopeIter {
@@ -8,16 +8,16 @@ pub struct RopeIter {
 impl RopeIter {
     fn collect_parent_right_nodes(&mut self, parent: &RopeNode) {
         match parent {
-            RopeNode::Node(parent_node) => match parent_node.right.as_ref() {
+            RopeNode::Node(parent_node) => match parent_node.right.0.as_ref() {
                 RopeNode::Node(right_node) => {
-                    self.nodes_stack.push(Rc::clone(&parent_node.right));
-                    let mut cur_node = Rc::clone(&right_node.left);
+                    self.nodes_stack.push(Rc::clone(&parent_node.right.0));
+                    let mut cur_node = Rc::clone(&right_node.left.0);
 
                     loop {
                         match cur_node.as_ref() {
                             RopeNode::Node(node) => {
                                 self.nodes_stack.push(Rc::clone(&cur_node));
-                                cur_node = Rc::clone(&node.left);
+                                cur_node = Rc::clone(&node.left.0);
                             }
                             RopeNode::Leaf(_) => {
                                 self.nodes_stack.push(Rc::clone(&cur_node));
@@ -27,7 +27,9 @@ impl RopeIter {
                         }
                     }
                 }
-                RopeNode::Leaf(_) => self.nodes_stack.push(Rc::clone(&parent_node.right)),
+                RopeNode::Leaf(_) => self
+                    .nodes_stack
+                    .push(Rc::clone(&parent_node.right.0).into()),
                 RopeNode::None => (),
             },
             RopeNode::Leaf(_) | RopeNode::None => (),
@@ -36,7 +38,7 @@ impl RopeIter {
 }
 
 impl Iterator for RopeIter {
-    type Item = Rc<RopeNode>;
+    type Item = RopeNodeWrapper;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -48,7 +50,7 @@ impl Iterator for RopeIter {
                             None => (),
                         };
 
-                        return Some(rope_node);
+                        return Some(rope_node.into());
                     }
                     RopeNode::Node(_) => {
                         self.collect_parent_right_nodes(rope_node.as_ref());
