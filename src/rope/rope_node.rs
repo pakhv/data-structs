@@ -226,7 +226,7 @@ impl RopeNode {
     pub fn insert(&self, index: usize, value: String) -> RopeNode {
         let new_leaf = RopeNode(Rc::new(RopeNodeType::Leaf(Leaf { value })));
 
-        let new_node = match index {
+        match index {
             0 => new_leaf.concat(Rc::clone(&self.0).into()),
             i if i >= self.len() => RopeNode(Rc::clone(&self.0)).concat(new_leaf),
             _ => {
@@ -234,9 +234,7 @@ impl RopeNode {
 
                 left.concat(new_leaf).concat(right)
             }
-        };
-
-        new_node
+        }
     }
 
     pub fn rebalance(&self) -> RopeNode {
@@ -262,6 +260,13 @@ impl RopeNode {
             RopeNodeType::None => false,
             _ => true,
         }
+    }
+
+    pub fn delete(&self, start: usize, len: usize) -> RopeNode {
+        let (left, _) = self.split(start);
+        let (_, right) = self.split(start + len);
+
+        left.concat(right)
     }
 
     fn get_char_rec(&self, index: usize, node: &RopeNodeType) -> Option<char> {

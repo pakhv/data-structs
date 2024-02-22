@@ -61,6 +61,10 @@ impl Rope {
         self.root = self.root.insert(index, value);
         self.rebalance();
     }
+
+    pub fn delete(&mut self, start: usize, len: usize) {
+        self.root = self.root.delete(start, len);
+    }
 }
 
 impl FromIterator<RopeNode> for Rope {
@@ -79,9 +83,8 @@ impl Display for Rope {
 
 #[cfg(test)]
 mod tests {
-    use crate::rope::rope_node::Leaf;
-
     use super::*;
+    use crate::rope::rope_node::Leaf;
 
     #[test]
     fn traverse_test() {
@@ -467,6 +470,53 @@ mod tests {
             let mut rope = Rope::new(Rc::clone(&root_node.0).into());
             rope.insert(idx, String::from("new_leaf"));
             assert_eq!(exp_result, format!("{}", rope.root));
+        }
+    }
+
+    #[test]
+    fn delete_test() {
+        let root_node: RopeNode = Rc::new(RopeNodeType::Node(Node {
+            left: Rc::new(RopeNodeType::Node(Node {
+                left: Rc::new(RopeNodeType::Leaf(Leaf {
+                    value: String::from("hello "),
+                }))
+                .into(),
+                right: Rc::new(RopeNodeType::Leaf(Leaf {
+                    value: String::from("world! "),
+                }))
+                .into(),
+                weight: 6,
+            }))
+            .into(),
+            right: Rc::new(RopeNodeType::None).into(),
+            weight: 13,
+        }))
+        .into();
+
+        let expected_result = vec![
+            (0, 6, r#"Node(Left: None, Right: Leaf("world! "))"#),
+            (
+                13,
+                5,
+                r#"Node(Left: Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: None), Right: None)"#,
+            ),
+            (6, 7, r#"Node(Left: Leaf("hello "), Right: None)"#),
+            (
+                9,
+                2,
+                r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("wor")), Right: Leaf("! "))"#,
+            ),
+            (
+                20,
+                5,
+                r#"Node(Left: Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: None), Right: None)"#,
+            ),
+        ];
+
+        for (idx, len, exp_result) in expected_result {
+            println!("test");
+            let result = root_node.delete(idx, len);
+            assert_eq!(exp_result, format!("{}", result));
         }
     }
 }
