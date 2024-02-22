@@ -2,24 +2,24 @@ use std::{fmt::Display, rc::Rc};
 
 use super::{
     rope_iter::RopeIter,
-    rope_node::{Node, RopeNode, RopeNodeWrapper},
+    rope_node::{Node, RopeNode, RopeNodeType},
 };
 
 #[derive(Debug)]
 pub struct Rope {
-    root: RopeNodeWrapper,
+    root: RopeNode,
 }
 
 impl Rope {
-    pub fn new(node: RopeNodeWrapper) -> Self {
+    pub fn new(node: RopeNode) -> Self {
         let root = match node.0.as_ref() {
-            RopeNode::Leaf(leaf) => Rc::new(RopeNode::Node(Node {
+            RopeNodeType::Leaf(leaf) => Rc::new(RopeNodeType::Node(Node {
                 left: Rc::clone(&node.0).into(),
-                right: Rc::new(RopeNode::None).into(),
+                right: Rc::new(RopeNodeType::None).into(),
                 weight: leaf.value.len(),
             }))
             .into(),
-            RopeNode::Node(_) | RopeNode::None => node,
+            RopeNodeType::Node(_) | RopeNodeType::None => node,
         };
 
         Self { root }
@@ -33,7 +33,7 @@ impl Rope {
         self.root.iter()
     }
 
-    pub fn split(&self, index: usize) -> (RopeNodeWrapper, RopeNodeWrapper) {
+    pub fn split(&self, index: usize) -> (RopeNode, RopeNode) {
         self.root.split(index)
     }
 
@@ -63,10 +63,10 @@ impl Rope {
     }
 }
 
-impl FromIterator<RopeNodeWrapper> for Rope {
-    fn from_iter<T: IntoIterator<Item = RopeNodeWrapper>>(iter: T) -> Self {
+impl FromIterator<RopeNode> for Rope {
+    fn from_iter<T: IntoIterator<Item = RopeNode>>(iter: T) -> Self {
         Rope {
-            root: RopeNodeWrapper::from_iter(iter),
+            root: RopeNode::from_iter(iter),
         }
     }
 }
@@ -86,25 +86,25 @@ mod tests {
     #[test]
     fn traverse_test() {
         let rope = Rope {
-            root: Rc::new(RopeNode::Node(Node {
-                left: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
+            root: Rc::new(RopeNodeType::Node(Node {
+                left: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("hello"),
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("world"),
                     }))
                     .into(),
                     weight: 5,
                 }))
                 .into(),
-                right: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
+                right: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("My name"),
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("is sugondese"),
                     }))
                     .into(),
@@ -130,25 +130,25 @@ mod tests {
     #[test]
     fn get_char_test() {
         let rope = Rope {
-            root: Rc::new(RopeNode::Node(Node {
-                left: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
+            root: Rc::new(RopeNodeType::Node(Node {
+                left: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("hello "),
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("world! "),
                     }))
                     .into(),
                     weight: 6,
                 }))
                 .into(),
-                right: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
+                right: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("My name"),
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("is sugondese"),
                     }))
                     .into(),
@@ -172,12 +172,12 @@ mod tests {
 
     #[test]
     fn concat_test() {
-        let node1: RopeNodeWrapper = Rc::new(RopeNode::Node(Node {
-            left: Rc::new(RopeNode::Leaf(Leaf {
+        let node1: RopeNode = Rc::new(RopeNodeType::Node(Node {
+            left: Rc::new(RopeNodeType::Leaf(Leaf {
                 value: String::from("hello "),
             }))
             .into(),
-            right: Rc::new(RopeNode::Leaf(Leaf {
+            right: Rc::new(RopeNodeType::Leaf(Leaf {
                 value: String::from("world! "),
             }))
             .into(),
@@ -185,12 +185,12 @@ mod tests {
         }))
         .into();
 
-        let node2 = Rc::new(RopeNode::Node(Node {
-            left: Rc::new(RopeNode::Leaf(Leaf {
+        let node2 = Rc::new(RopeNodeType::Node(Node {
+            left: Rc::new(RopeNodeType::Leaf(Leaf {
                 value: String::from("My name"),
             }))
             .into(),
-            right: Rc::new(RopeNode::Leaf(Leaf {
+            right: Rc::new(RopeNodeType::Leaf(Leaf {
                 value: String::from("is sugondese"),
             }))
             .into(),
@@ -214,26 +214,26 @@ mod tests {
     #[test]
     fn substring_test() {
         let mut rope = Rope {
-            root: Rc::new(RopeNode::Node(Node {
-                left: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Node(Node {
-                        left: Rc::new(RopeNode::Leaf(Leaf {
+            root: Rc::new(RopeNodeType::Node(Node {
+                left: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Node(Node {
+                        left: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("hello "),
                         }))
                         .into(),
-                        right: Rc::new(RopeNode::Leaf(Leaf {
+                        right: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("world! "),
                         }))
                         .into(),
                         weight: 6,
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Node(Node {
-                        left: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Node(Node {
+                        left: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("My name"),
                         }))
                         .into(),
-                        right: Rc::new(RopeNode::Leaf(Leaf {
+                        right: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("is sugondese"),
                         }))
                         .into(),
@@ -243,25 +243,25 @@ mod tests {
                     weight: 13,
                 }))
                 .into(),
-                right: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Node(Node {
-                        left: Rc::new(RopeNode::Leaf(Leaf {
+                right: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Node(Node {
+                        left: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("hello "),
                         }))
                         .into(),
-                        right: Rc::new(RopeNode::Leaf(Leaf {
+                        right: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("world! "),
                         }))
                         .into(),
                         weight: 6,
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Node(Node {
-                        left: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Node(Node {
+                        left: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("My name"),
                         }))
                         .into(),
-                        right: Rc::new(RopeNode::Leaf(Leaf {
+                        right: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("is sugondese"),
                         }))
                         .into(),
@@ -285,26 +285,26 @@ mod tests {
 
     #[test]
     fn get_depth_test() {
-        let node: RopeNodeWrapper = Rc::new(RopeNode::Node(Node {
-            left: Rc::new(RopeNode::Node(Node {
-                left: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
+        let node: RopeNode = Rc::new(RopeNodeType::Node(Node {
+            left: Rc::new(RopeNodeType::Node(Node {
+                left: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("hello "),
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("world! "),
                     }))
                     .into(),
                     weight: 6,
                 }))
                 .into(),
-                right: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
+                right: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("My name"),
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("is sugondese"),
                     }))
                     .into(),
@@ -314,7 +314,7 @@ mod tests {
                 weight: 13,
             }))
             .into(),
-            right: Rc::new(RopeNode::None).into(),
+            right: Rc::new(RopeNodeType::None).into(),
             weight: 0,
         }))
         .into();
@@ -325,26 +325,26 @@ mod tests {
     #[test]
     fn rebalance_test() {
         let mut rope = Rope::new(
-            Rc::new(RopeNode::Node(Node {
-                left: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Node(Node {
-                        left: Rc::new(RopeNode::Leaf(Leaf {
+            Rc::new(RopeNodeType::Node(Node {
+                left: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Node(Node {
+                        left: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("hello "),
                         }))
                         .into(),
-                        right: Rc::new(RopeNode::Leaf(Leaf {
+                        right: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("world! "),
                         }))
                         .into(),
                         weight: 6,
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Node(Node {
-                        left: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Node(Node {
+                        left: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("My name"),
                         }))
                         .into(),
-                        right: Rc::new(RopeNode::Leaf(Leaf {
+                        right: Rc::new(RopeNodeType::Leaf(Leaf {
                             value: String::from("is sugondese"),
                         }))
                         .into(),
@@ -354,7 +354,7 @@ mod tests {
                     weight: 13,
                 }))
                 .into(),
-                right: Rc::new(RopeNode::None).into(),
+                right: Rc::new(RopeNodeType::None).into(),
                 weight: 0,
             }))
             .into(),
@@ -370,20 +370,20 @@ mod tests {
     #[test]
     fn split_test() {
         let rope = Rope::new(
-            Rc::new(RopeNode::Node(Node {
-                left: Rc::new(RopeNode::Node(Node {
-                    left: Rc::new(RopeNode::Leaf(Leaf {
+            Rc::new(RopeNodeType::Node(Node {
+                left: Rc::new(RopeNodeType::Node(Node {
+                    left: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("hello "),
                     }))
                     .into(),
-                    right: Rc::new(RopeNode::Leaf(Leaf {
+                    right: Rc::new(RopeNodeType::Leaf(Leaf {
                         value: String::from("world! "),
                     }))
                     .into(),
                     weight: 6,
                 }))
                 .into(),
-                right: Rc::new(RopeNode::None).into(),
+                right: Rc::new(RopeNodeType::None).into(),
                 weight: 13,
             }))
             .into(),
@@ -422,20 +422,20 @@ mod tests {
 
     #[test]
     fn insert_test() {
-        let root_node: RopeNodeWrapper = Rc::new(RopeNode::Node(Node {
-            left: Rc::new(RopeNode::Node(Node {
-                left: Rc::new(RopeNode::Leaf(Leaf {
+        let root_node: RopeNode = Rc::new(RopeNodeType::Node(Node {
+            left: Rc::new(RopeNodeType::Node(Node {
+                left: Rc::new(RopeNodeType::Leaf(Leaf {
                     value: String::from("hello "),
                 }))
                 .into(),
-                right: Rc::new(RopeNode::Leaf(Leaf {
+                right: Rc::new(RopeNodeType::Leaf(Leaf {
                     value: String::from("world! "),
                 }))
                 .into(),
                 weight: 6,
             }))
             .into(),
-            right: Rc::new(RopeNode::None).into(),
+            right: Rc::new(RopeNodeType::None).into(),
             weight: 13,
         }))
         .into();
