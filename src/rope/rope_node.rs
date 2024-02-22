@@ -29,24 +29,6 @@ impl RopeNode {
         }
     }
 
-    pub fn concat(s1: Rc<RopeNode>, s2: Rc<RopeNode>) -> Rc<RopeNode> {
-        let weight = Rope::new(Rc::clone(&s1))
-            .iter()
-            .map(|n| {
-                n.map_leaf()
-                    .expect("error while iterating leafs. None leaf node found")
-                    .value
-                    .len()
-            })
-            .sum();
-
-        Rc::new(RopeNode::Node(Node {
-            left: s1,
-            right: s2,
-            weight,
-        }))
-    }
-
     pub fn is_not_none(&self) -> bool {
         match self {
             RopeNode::None => false,
@@ -74,5 +56,29 @@ impl Display for RopeNode {
             RopeNode::Leaf(leaf) => write!(f, "Leaf(\"{}\")", leaf.value),
             RopeNode::None => write!(f, "None"),
         }
+    }
+}
+
+pub trait RopeConcat<T> {
+    fn concat(self, s2: T) -> T;
+}
+
+impl RopeConcat<Rc<RopeNode>> for Rc<RopeNode> {
+    fn concat(self, s2: Rc<RopeNode>) -> Rc<RopeNode> {
+        let weight = Rope::new(Rc::clone(&self))
+            .iter()
+            .map(|n| {
+                n.map_leaf()
+                    .expect("error while iterating leafs. None leaf node found")
+                    .value
+                    .len()
+            })
+            .sum();
+
+        Rc::new(RopeNode::Node(Node {
+            left: self,
+            right: s2,
+            weight,
+        }))
     }
 }

@@ -4,7 +4,7 @@ use std::{fmt::Display, rc::Rc};
 
 use super::{
     rope_iter::RopeIter,
-    rope_node::{Node, RopeNode},
+    rope_node::{Node, RopeConcat, RopeNode},
 };
 
 #[derive(Debug)]
@@ -24,13 +24,6 @@ impl Rope {
         };
 
         Self { root }
-    }
-
-    pub fn concat(s1: Rc<RopeNode>, s2: Rc<RopeNode>) -> Self {
-        let mut result = Rope::new(RopeNode::concat(s1, s2));
-        result.rebalance();
-
-        result
     }
 
     pub fn get_char(&self, index: usize) -> Option<char> {
@@ -176,6 +169,23 @@ impl Rope {
 
     pub fn len(&self) -> usize {
         self.iter().map(|n| n.map_leaf().unwrap().value.len()).sum()
+    }
+
+    pub fn insert(&mut self, index: usize, value: String) {
+        let new_leaf = Rc::new(RopeNode::Leaf(Leaf { value }));
+
+        let new_root = match index {
+            0 => new_leaf.concat(Rc::clone(&self.root)),
+            i if i >= self.len() => Rc::clone(&self.root).concat(new_leaf),
+            _ => {
+                let (left, right) = self.split(index);
+
+                left.concat(new_leaf).concat(right)
+            }
+        };
+
+        self.root = new_root;
+        self.rebalance();
     }
 
     fn get_char_rec(&self, index: usize, node: &RopeNode) -> Option<char> {
@@ -352,7 +362,7 @@ mod tests {
             weight: 7,
         }));
 
-        let rope = Rope::concat(node1, node2);
+        let rope = Rope::new(node1.concat(node2));
 
         let mut iter = rope.iter();
 
@@ -532,6 +542,52 @@ mod tests {
             let (left, right) = rope.split(idx);
             assert_eq!(exp_left, format!("{left}"));
             assert_eq!(exp_right, format!("{right}"));
+        }
+    }
+
+    #[test]
+    fn insert_test() {
+        let root_node = Rc::new(RopeNode::Node(Node {
+            left: Rc::new(RopeNode::Node(Node {
+                left: Rc::new(RopeNode::Leaf(Leaf {
+                    value: String::from("hello "),
+                })),
+                right: Rc::new(RopeNode::Leaf(Leaf {
+                    value: String::from("world! "),
+                })),
+                weight: 6,
+            })),
+            right: Rc::new(RopeNode::None),
+            weight: 13,
+        }));
+
+        let expected_result = vec![
+            (
+                0,
+                r#"Node(Left: Node(Left: Leaf("new_leaf"), Right: Leaf("hello ")), Right: Leaf("world! "))"#,
+            ),
+            (
+                13,
+                r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: Leaf("new_leaf"))"#,
+            ),
+            (
+                6,
+                r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("new_leaf")), Right: Leaf("world! "))"#,
+            ),
+            (
+                9,
+                r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("wor")), Right: Node(Left: Leaf("new_leaf"), Right: Leaf("ld! ")))"#,
+            ),
+            (
+                20,
+                r#"Node(Left: Node(Left: Leaf("hello "), Right: Leaf("world! ")), Right: Leaf("new_leaf"))"#,
+            ),
+        ];
+
+        for (idx, exp_result) in expected_result {
+            let mut rope = Rope::new(Rc::clone(&root_node));
+            rope.insert(idx, String::from("new_leaf"));
+            assert_eq!(exp_result, format!("{}", rope.root));
         }
     }
 }

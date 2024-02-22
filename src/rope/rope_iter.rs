@@ -39,20 +39,24 @@ impl Iterator for RopeIter {
     type Item = Rc<RopeNode>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.nodes_stack.pop() {
-            Some(rope_node) => match rope_node.as_ref() {
-                RopeNode::Leaf(_) => {
-                    match self.nodes_stack.pop() {
-                        Some(parent) => self.collect_parent_right_nodes(parent.as_ref()),
-                        None => (),
-                    };
+        loop {
+            match self.nodes_stack.pop() {
+                Some(rope_node) => match rope_node.as_ref() {
+                    RopeNode::Leaf(_) => {
+                        match self.nodes_stack.pop() {
+                            Some(parent) => self.collect_parent_right_nodes(parent.as_ref()),
+                            None => (),
+                        };
 
-                    Some(rope_node)
-                }
-                // how did this happen lol?
-                RopeNode::Node(_) | RopeNode::None => None,
-            },
-            None => None,
+                        return Some(rope_node);
+                    }
+                    RopeNode::Node(_) => {
+                        self.collect_parent_right_nodes(rope_node.as_ref());
+                    }
+                    RopeNode::None => (),
+                },
+                None => return None,
+            }
         }
     }
 }
