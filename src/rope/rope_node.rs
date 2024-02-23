@@ -1,8 +1,6 @@
-use std::{cmp, fmt::Display, rc::Rc};
-
-use crate::helpers::fibonacci_seq::get_fibonacci_number;
-
 use super::rope_iter::RopeIter;
+use crate::helpers::fibonacci_seq::get_fibonacci_number;
+use std::{cmp, fmt::Display, rc::Rc};
 
 #[derive(Debug)]
 pub enum RopeNodeType {
@@ -22,8 +20,6 @@ pub struct Node {
 pub struct Leaf {
     pub value: String,
 }
-
-impl RopeNodeType {}
 
 impl Display for RopeNodeType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
